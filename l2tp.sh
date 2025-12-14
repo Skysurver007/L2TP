@@ -33,16 +33,6 @@ CahayaNet      *	putra123	      172.100.100.103
 CahaaNet2	     *	putra123	      172.100.100.104
 FerlisNet	     *	putra123	      172.100.100.105
 FerlisNet2	   *	putra123	      172.100.100.106
-Petakan  	     *	Petakan2025	    172.100.100.107
-Petakan  	     *	Since1991	      172.100.100.108
-eren		       *	eren123	        172.100.100.109
-Majuterus	     *	suksesterus	    172.100.100.110
-K-Cunk  	     *	Since1991	      172.100.100.111
-admin		       *	M4RZULMUS4	    172.100.100.112
-Operator	     *	Nadya@mus4	    172.100.100.113
-udin		       *	risalahhati87	  172.100.100.114
-nindi          * dita             172.100.100.115 
-
 EOF
 
 echo "=== Step 4: Configure options.xl2tpd ==="
