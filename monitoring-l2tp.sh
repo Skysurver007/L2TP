@@ -63,8 +63,8 @@ cat > /root/monitor_full.py <<'EOF'
 import time, json, os, subprocess, requests
 from datetime import datetime
 
-TOKEN = "8506333953:AAEhYywqf0Gl2CleU03HWEyRCVgJ6AxNPVE"
-CHAT_ID = "-5072450926"
+TOKEN = "ISI BOT TOKEN"
+CHAT_ID = "ISI CHAT ID"
 SESS_DIR = "/var/run/ppp_sessions"
 BAN_FILE = "/etc/ppp/banlist.txt"
 LOG_FILE = "/var/log/ppp-monitor.log"
