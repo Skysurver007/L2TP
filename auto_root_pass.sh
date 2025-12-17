@@ -45,8 +45,8 @@ ms-dns 8.8.8.8
 ms-dns 8.8.4.4
 noccp
 auth
-mtu 1410
-mru 1410
+mtu 1450
+mru 1450
 nodefaultroute
 debug
 proxyarp
