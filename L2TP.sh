@@ -51,6 +51,7 @@ debug
 proxyarp
 require-chap
 refuse-pap
+lock
 EOF
 
 echo "=== Step 5: Restart xl2tpd service ==="
