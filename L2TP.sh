@@ -10,6 +10,7 @@ mv /etc/xl2tpd/xl2tpd.conf /etc/xl2tpd/xl2tpd.conf.backup
 cat > /etc/xl2tpd/xl2tpd.conf <<EOF
 [global]
 port = 1701
+ipsec saref = no
 access control = no
 
 [lns default]
@@ -19,7 +20,7 @@ require chap = yes
 refuse pap = yes
 require authentication = yes
 name = L2TPServer
-ppp debug = yes
+ppp debug = not
 pppoptfile = /etc/ppp/options.xl2tpd
 length bit = yes
 EOF
@@ -41,18 +42,22 @@ cat > /etc/ppp/options.xl2tpd <<EOF
 ipcp-accept-local
 ipcp-accept-remote
 ms-dns 8.8.8.8
-ms-dns 8.8.4.4
+ms-dns 1.1.1.1
 noccp
 auth
-mtu 1450
-mru 1450
+mtu 1460
+mru 1460
+lock
 nodefaultroute
-debug
-proxyarp
 require-chap
 refuse-pap
-lock
+hide-password
+lcp-echo-interval 30
+lcp-echo-failure 4
+debug
+proxyarp
 EOF
+
 
 echo "=== Step 5: Restart xl2tpd service ==="
 systemctl restart xl2tpd
