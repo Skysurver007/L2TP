@@ -20,7 +20,7 @@ require chap = yes
 refuse pap = yes
 require authentication = yes
 name = L2TPServer
-ppp debug = not
+ppp debug = no
 pppoptfile = /etc/ppp/options.xl2tpd
 length bit = yes
 EOF
