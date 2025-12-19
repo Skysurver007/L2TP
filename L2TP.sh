@@ -46,8 +46,8 @@ ms-dns 8.8.8.8
 ms-dns 1.1.1.1
 noccp
 auth
-mtu 1410
-mru 1410
+mtu 1450
+mru 1450
 lock
 nodefaultroute
 require-chap
@@ -144,16 +144,25 @@ CONFIG_FILE="/etc/l2tp-forwards.conf"
 
 for i in $(seq 101 254); do
     IP="172.100.100.$i"
-    for port in 1 2 3 4 5; do
+    for port in 1 2 3 4 5 6 7; do
         SERVER_PORT=$((port * 1000 + i - 100))
-        if [ "$port" -eq 1 ]; then
-            CLIENT_PORT=8291
-        else
-            CLIENT_PORT=$SERVER_PORT
-        fi
+
+        case "$port" in
+            1)
+                CLIENT_PORT=8291   # Winbox Mikrotik
+                ;;
+            2)
+                CLIENT_PORT=8728   # API Mikrotik
+                ;;
+            *)
+                CLIENT_PORT=$SERVER_PORT
+                ;;
+        esac
+
         echo "${SERVER_PORT}:${IP}:${CLIENT_PORT}" >> "$CONFIG_FILE"
     done
 done
+
 EOF
 
 chmod +x /usr/local/bin/generate-l2tp-conf.sh
