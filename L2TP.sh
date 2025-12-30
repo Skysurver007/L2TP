@@ -15,7 +15,7 @@ ipsec saref = no
 access control = no
 
 [lns default]
-ip range = 172.100.100.101-172.100.100.254
+ip range = 172.100.100.2-172.100.100.254
 local ip = 172.100.100.1
 require chap = yes
 refuse pap = yes
@@ -28,14 +28,7 @@ EOF
 
 echo "=== Step 3: Configure chap-secrets ==="
 cat > /etc/ppp/chap-secrets <<EOF
-RizkiNet       * putra123 172.100.100.101
-007putra       * putra123 172.100.100.102
-CahayaNet      * putra123 172.100.100.103
-CahaaNet2      * putra123 172.100.100.104
-FerlisNet      * putra123 172.100.100.105
-FerlisNet2     * putra123 172.100.100.106
-JuanNet        * putra123 172.100.100.107
-JuanNet2       * putra123 172.100.100.108
+Username       * Password 172.100.100.254
 EOF
 
 echo "=== Step 4: Configure options.xl2tpd ==="
@@ -142,10 +135,10 @@ cat > /usr/local/bin/generate-l2tp-conf.sh <<'EOF'
 CONFIG_FILE="/etc/l2tp-forwards.conf"
 > "$CONFIG_FILE"
 
-for i in $(seq 101 254); do
+for i in $(seq 2 254); do
     IP="172.100.100.$i"
     for port in 1 2 3 4 5 6 7; do
-        SERVER_PORT=$((port * 1000 + i - 100))
+        SERVER_PORT=$((port * 1000 + i))
 
         case "$port" in
             1)
