@@ -25,13 +25,7 @@ ppp debug = no
 pppoptfile = /etc/ppp/options.xl2tpd
 length bit = yes
 EOF
-
-echo "=== Step 3: Configure chap-secrets ==="
-cat > /etc/ppp/chap-secrets <<EOF
-Username       * Password 172.100.100.254
-EOF
-
-echo "=== Step 4: Configure options.xl2tpd ==="
+echo "=== Step 3: Configure options.xl2tpd ==="
 cat > /etc/ppp/options.xl2tpd <<EOF
 ipcp-accept-local
 ipcp-accept-remote
@@ -52,7 +46,7 @@ debug
 proxyarp
 EOF
 
-echo "=== Step 5: Configure auth-up (limit 1 login per user) ==="
+echo "=== Step 4: Configure auth-up (limit 1 login per user) ==="
 cat > /etc/ppp/auth-up <<'EOF'
 #!/bin/bash
 
@@ -79,7 +73,7 @@ logger -t L2TP "user=$USER connected pid=$PPPD_PID"
 exit 0
 EOF
 
-echo "=== Step 6: Configure ip-down (hapus lock saat disconnect) ==="
+echo "=== Step 5: Configure ip-down (hapus lock saat disconnect) ==="
 cat > /etc/ppp/ip-down <<'EOF'
 #!/bin/bash
 
@@ -93,10 +87,10 @@ EOF
 chmod +x /etc/ppp/auth-up
 chmod +x /etc/ppp/ip-down
 
-echo "=== Step 7: Restart xl2tpd service ==="
+echo "=== Step 6: Restart xl2tpd service ==="
 systemctl restart xl2tpd
 
-echo "=== Step 8: Create l2tp-forward.sh ==="
+echo "=== Step 7: Create l2tp-forward.sh ==="
 cat > /usr/local/bin/l2tp-forward.sh <<'EOF'
 #!/bin/bash
 
@@ -113,7 +107,7 @@ EOF
 
 chmod +x /usr/local/bin/l2tp-forward.sh
 
-echo "=== Step 9: Create systemd service ==="
+echo "=== Step 8: Create systemd service ==="
 cat > /etc/systemd/system/l2tp-forward.service <<EOF
 [Unit]
 Description=L2TP VPN Port Forwarding
@@ -128,14 +122,14 @@ RemainAfterExit=yes
 WantedBy=multi-user.target
 EOF
 
-echo "=== Step 10: Generate port forwarding config ==="
+echo "=== Step 9: Generate port forwarding config ==="
 cat > /usr/local/bin/generate-l2tp-conf.sh <<'EOF'
 #!/bin/bash
 
 CONFIG_FILE="/etc/l2tp-forwards.conf"
 > "$CONFIG_FILE"
 
-for i in $(seq 2 254); do
+for i in $(seq 2 253); do
     IP="172.100.100.$i"
     for port in 1 2 3 4 5 6 7; do
         SERVER_PORT=$((port * 1000 + i))
@@ -161,7 +155,7 @@ EOF
 chmod +x /usr/local/bin/generate-l2tp-conf.sh
 /usr/local/bin/generate-l2tp-conf.sh
 
-echo "=== Step 11: Enable forwarding service ==="
+echo "=== Step 10: Enable forwarding service ==="
 systemctl daemon-reload
 systemctl enable l2tp-forward
 systemctl restart l2tp-forward
