@@ -1,8 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "=== Step 1: Install repository script and update packages ==="
-bash <(curl -s https://raw.githubusercontent.com/Skysurver007/repositoi-ubuntu/main/repository.sh)
+echo "=== Step 1: Install and update packages ==="
 apt update
 apt install -y xl2tpd socat
 
