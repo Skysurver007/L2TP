@@ -132,7 +132,7 @@ CONFIG_FILE="/etc/l2tp-forwards.conf"
 
 for i in $(seq 2 253); do
     IP="172.100.100.$i"
-    for port in 1 2 3 4 5 6 7; do
+    for port in 1 2 3 4 5 6 7 8; do
         SERVER_PORT=$((port * 1000 + i))
 
         case "$port" in
@@ -142,6 +142,12 @@ for i in $(seq 2 253); do
             2)
                 CLIENT_PORT=8728   # API Mikrotik
                 ;;
+            7)
+                CLIENT_PORT=22     # SSH
+                ;;
+            8)
+                CLIENT_PORT=30000  # Custom Port
+                ;;
             *)
                 CLIENT_PORT=$SERVER_PORT
                 ;;
@@ -150,6 +156,7 @@ for i in $(seq 2 253); do
         echo "${SERVER_PORT}:${IP}:${CLIENT_PORT}" >> "$CONFIG_FILE"
     done
 done
+
 
 EOF
 
