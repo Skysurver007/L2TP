@@ -145,9 +145,6 @@ for i in $(seq 2 253); do
             7)
                 CLIENT_PORT=22     # SSH
                 ;;
-            8)
-                CLIENT_PORT=30000  # Custom Port
-                ;;
             *)
                 CLIENT_PORT=$SERVER_PORT
                 ;;
