@@ -16,8 +16,8 @@ ipsec saref = no
 access control = no
 
 [lns default]
-ip range = 172.25.100.2-172.25.100.149
-local ip = 172.100.100.150
+ip range = 172.25.100.2-172.25.100.150
+local ip = 172.25.100.150
 require chap = yes
 refuse pap = yes
 require authentication = yes
