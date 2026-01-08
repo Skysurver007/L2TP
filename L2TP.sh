@@ -16,8 +16,8 @@ ipsec saref = no
 access control = no
 
 [lns default]
-ip range = 172.100.100.2-172.100.100.254
-local ip = 172.100.100.1
+ip range = 172.25.100.2-172.25.100.149
+local ip = 172.100.100.150
 require chap = yes
 refuse pap = yes
 require authentication = yes
@@ -130,9 +130,9 @@ cat > /usr/local/bin/generate-l2tp-conf.sh <<'EOF'
 CONFIG_FILE="/etc/l2tp-forwards.conf"
 > "$CONFIG_FILE"
 
-for i in $(seq 2 253); do
-    IP="172.100.100.$i"
-    for port in 1 2 3 4 5 6 7 8; do
+for i in $(seq 1 149); do
+    IP="172.25.100.$i"
+    for port in 1 2 3 4 5 6 7 8 ; do
         SERVER_PORT=$((port * 1000 + i))
 
         case "$port" in
@@ -142,7 +142,7 @@ for i in $(seq 2 253); do
             2)
                 CLIENT_PORT=8728   # API Mikrotik
                 ;;
-            7)
+            8)
                 CLIENT_PORT=22     # SSH
                 ;;
             *)
