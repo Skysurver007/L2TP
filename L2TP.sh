@@ -16,8 +16,8 @@ ipsec saref = no
 access control = no
 
 [lns default]
-ip range = 172.25.100.2-172.25.100.150
-local ip = 172.25.100.150
+ip range = 172.25.100.1-172.25.100.150
+local ip = 172.25.100.254
 require chap = yes
 refuse pap = yes
 require authentication = yes
@@ -130,7 +130,7 @@ cat > /usr/local/bin/generate-l2tp-conf.sh <<'EOF'
 CONFIG_FILE="/etc/l2tp-forwards.conf"
 > "$CONFIG_FILE"
 
-for i in $(seq 1 149); do
+for i in $(seq 1 150); do
     IP="172.25.100.$i"
     for port in 1 2 3 4 5 6 7 8 ; do
         SERVER_PORT=$((port * 1000 + i))
