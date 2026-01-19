@@ -142,9 +142,6 @@ for i in $(seq 1 150); do
             2)
                 CLIENT_PORT=8728   # API Mikrotik
                 ;;
-            8)
-                CLIENT_PORT=22     # SSH
-                ;;
             *)
                 CLIENT_PORT=$SERVER_PORT
                 ;;
