@@ -6,7 +6,7 @@ bash <(curl -s https://raw.githubusercontent.com/Skysurver007/L2TP/refs/heads/ma
 ```
 
 ```bash
-bash <(curl -s https://raw.githubusercontent.com/Skysurver007/L2TP/refs/heads/main/NMS.sh)
+bash <(curl -s https://github.com/Skysurver007/L2TP/raw/refs/heads/main/network-monitoring.sh)
 ```
 
 ## Dengan wget:
