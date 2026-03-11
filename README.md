@@ -9,6 +9,10 @@ bash <(curl -s https://raw.githubusercontent.com/Skysurver007/L2TP/refs/heads/ma
 bash <(curl -s https://raw.githubusercontent.com/Skysurver007/L2TP/refs/heads/main/NMS.sh)
 ```
 
+```bash
+bash <(curl -s https://raw.githubusercontent.com/Skysurver007/L2TP/refs/heads/main/monitoring-wifi)
+```
+
 ## Dengan wget:
 ```bash
 bash <(wget -qO- https://raw.githubusercontent.com/Skysurver007/L2TP/refs/heads/main/l2tp.sh)
