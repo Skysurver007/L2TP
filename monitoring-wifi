@@ -1,0 +1,420 @@
+#!/bin/bash
+
+# Script Instalasi Monitoring WiFi - Sekali Klik
+# Dibuat otomatis oleh RizkiNet
+# VERSI DENGAN SISTEM LISENSI
+
+set -e  # Exit jika ada error
+
+# ==========================================
+# KONFIGURASI SERVER LISENSI (EDIT SESUAI SERVER ANDA)
+# ==========================================
+LICENSE_SERVER="vpn.rizkinet.biz.id"  # Ganti dengan domain server lisensi Anda
+LICENSE_API_KEY="XmAkXLgvsqzPTHp5E3G7yextaA5pK5Vp"            # API key untuk komunikasi dengan server
+
+# ==========================================
+# FUNGSI VALIDASI LISENSI
+# ==========================================
+
+# Fungsi untuk generate hardware ID unik
+generate_hardware_id() {
+    # Kombinasi MAC address, CPU ID, dan disk serial untuk ID unik
+    local mac=$(cat /sys/class/net/$(ip route | grep default | awk '{print $5}' | head -1)/address 2>/dev/null | tr -d ':' || echo "unknown")
+    local cpuinfo=$(grep 'Serial' /proc/cpuinfo 2>/dev/null | awk '{print $3}' || echo "unknown")
+    local diskid=$(lsblk -dn -o SERIAL /dev/sda 2>/dev/null || echo "unknown")
+    echo -n "${mac}${cpuinfo}${diskid}" | sha256sum | awk '{print $1}' | cut -c1-16
+}
+
+# Fungsi untuk validasi format lisensi
+validate_license_format() {
+    local license="$1"
+    # Format: RIZKINET-XXXX-XXXX-XXXX-HASH (X = alphanumeric, HASH = 8 karakter)
+    if [[ $license =~ ^RIZKINET-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-F0-9]{8}$ ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Fungsi untuk ekstrak komponen lisensi
+extract_license_parts() {
+    local license="$1"
+    echo "$license" | awk -F'-' '{print $2"-"$3"-"$4}'
+}
+
+# Fungsi untuk generate hash dari hardware ID dan kode unik
+generate_validation_hash() {
+    local hardware_id="$1"
+    local unique_code="$2"
+    local secret_salt="RizkiNet2024Secure"  # Ganti dengan salt rahasia Anda
+    echo -n "${hardware_id}${unique_code}${secret_salt}" | sha256sum | awk '{print $1}' | cut -c1-8 | tr 'a-f' 'A-F'
+}
+
+# Fungsi untuk verifikasi lisensi dengan server
+verify_license_online() {
+    local license="$1"
+    local hardware_id="$2"
+    
+    echo "[*] Memverifikasi lisensi dengan server..."
+    
+    # Kirim request ke server lisensi
+    local response=$(curl -s -X POST "${LICENSE_SERVER}/api/verify" \
+        -H "Content-Type: application/json" \
+        -H "X-API-Key: ${LICENSE_API_KEY}" \
+        -d "{
+            \"license\": \"${license}\",
+            \"hardware_id\": \"${hardware_id}\",
+            \"timestamp\": \"$(date +%s)\"
+        }" 2>/dev/null || echo '{"valid": false, "error": "connection"}')
+    
+    # Parse response (sederhana, asumsikan server return JSON)
+    if echo "$response" | grep -q '"valid":true'; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Fungsi untuk aktivasi lisensi di server
+activate_license_online() {
+    local license="$1"
+    local hardware_id="$2"
+    local server_ip=$(curl -s ifconfig.me 2>/dev/null || echo "unknown")
+    
+    echo "[*] Mengaktifkan lisensi di server..."
+    
+    local response=$(curl -s -X POST "${LICENSE_SERVER}/api/activate" \
+        -H "Content-Type: application/json" \
+        -H "X-API-Key: ${LICENSE_API_KEY}" \
+        -d "{
+            \"license\": \"${license}\",
+            \"hardware_id\": \"${hardware_id}\",
+            \"server_ip\": \"${server_ip}\",
+            \"activated_at\": \"$(date -Iseconds)\"
+        }" 2>/dev/null || echo '{"success": false}')
+    
+    if echo "$response" | grep -q '"success":true'; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Fungsi utama validasi lisensi
+validate_license() {
+    local license="$1"
+    local hardware_id=$(generate_hardware_id)
+    
+    echo "[*] Hardware ID: $hardware_id"
+    
+    # 1. Validasi format
+    if ! validate_license_format "$license"; then
+        echo "✗ Format lisensi tidak valid!"
+        echo "  Format yang benar: RIZKINET-XXXX-XXXX-XXXX-HASH"
+        return 1
+    fi
+    
+    # 2. Ekstrak kode unik
+    local unique_code=$(extract_license_parts "$license")
+    local expected_hash=$(generate_validation_hash "$hardware_id" "$unique_code")
+    local provided_hash=$(echo "$license" | awk -F'-' '{print $5}')
+    
+    # 3. Validasi hash lokal
+    if [ "$expected_hash" != "$provided_hash" ]; then
+        echo "✗ Hash lisensi tidak cocok dengan hardware ini!"
+        echo "  Lisensi ini mungkin untuk perangkat lain."
+        return 1
+    fi
+    
+    # 4. Verifikasi dengan server (online check)
+    if ! verify_license_online "$license" "$hardware_id"; then
+        echo "✗ Lisensi tidak valid atau sudah digunakan di perangkat lain!"
+        echo "  Hubungi RizkiNet untuk bantuan."
+        return 1
+    fi
+    
+    # 5. Aktivasi jika valid
+    if ! activate_license_online "$license" "$hardware_id"; then
+        echo "✗ Gagal mengaktifkan lisensi di server!"
+        return 1
+    fi
+    
+    # Simpan lisensi dan hardware ID
+    mkdir -p /etc/rizkinet
+    echo "$license" > /etc/rizkinet/license.key
+    echo "$hardware_id" > /etc/rizkinet/hardware.id
+    chmod 600 /etc/rizkinet/*
+    
+    echo "✓ Lisensi valid dan berhasil diaktifkan!"
+    return 0
+}
+
+# ==========================================
+# ANTI-TAMPERING CHECK
+# ==========================================
+
+# Cek apakah script dimodifikasi (opsional - menggunakan checksum)
+verify_script_integrity() {
+    # Anda bisa tambahkan checksum verification di sini
+    # Misalnya: bandingkan dengan hash yang ditandatangani
+    return 0
+}
+
+# ==========================================
+# MAIN PROGRAM
+# ==========================================
+
+clear
+echo "=========================================="
+echo "  MONITORING WIFI - AUTO INSTALLER"
+echo "  Powered by RizkiNet License System"
+echo "=========================================="
+echo ""
+
+# Cek root
+if [ "$EUID" -ne 0 ]; then 
+    echo "✗ Script harus dijalankan sebagai root!"
+    exit 1
+fi
+
+# Verifikasi integritas script
+verify_script_integrity
+
+# Input lisensi
+echo "Sistem ini memerlukan lisensi valid dari RizkiNet."
+echo ""
+read -p "Masukkan License Key (format: RIZKINET-XXXX-XXXX-XXXX-HASH): " LICENSE_KEY
+echo ""
+
+if [ -z "$LICENSE_KEY" ]; then
+    echo "✗ License key tidak boleh kosong!"
+    exit 1
+fi
+
+# Validasi lisensi
+if ! validate_license "$LICENSE_KEY"; then
+    echo ""
+    echo "=========================================="
+    echo "  AKTIVASI GAGAL"
+    echo "=========================================="
+    echo "Silakan hubungi RizkiNet untuk mendapatkan"
+    echo "lisensi yang valid."
+    echo ""
+    exit 1
+fi
+
+echo ""
+echo "=========================================="
+echo "  MELANJUTKAN INSTALASI..."
+echo "=========================================="
+echo ""
+
+# Update dan upgrade sistem
+echo "[1/9] Updating dan upgrading sistem..."
+apt update && apt upgrade -y
+
+# Install git dan dependencies network
+echo "[2/9] Menginstall Git dan dependencies..."
+apt install git curl wget net-tools -y
+
+# Clone repository
+echo "[3/9] Cloning repository..."
+if [ -d "NMS" ]; then
+    rm -rf NMS
+fi
+git clone https://github.com/Skysurver007/NMS.git 
+mv NMS monitoring-wifi
+
+# Install Python dan dependencies
+echo "[4/9] Menginstall Python dan dependencies..."
+apt install python3 python3-pip python3-venv -y
+
+# Setup Python environment
+echo "[5/9] Setup Python virtual environment..."
+cd /root/monitoring-wifi
+rm -rf README.md
+python3 -m venv venv
+source venv/bin/activate
+pip install flask psutil requests routeros_api icmplib flask-compress gunicorn
+deactivate
+
+# Buat file lisensi di dalam aplikasi untuk validasi runtime
+echo "[*] Menyiapkan validasi runtime..."
+cat > /root/monitoring-wifi/license_validator.py << 'EOF'
+import hashlib
+import os
+import json
+import requests
+from datetime import datetime
+
+class LicenseValidator:
+    LICENSE_FILE = '/etc/rizkinet/license.key'
+    HARDWARE_FILE = '/etc/rizkinet/hardware.id'
+    LICENSE_SERVER = 'https://license.rizkinet.com/api'
+    SECRET_SALT = 'RizkiNet2024Secure'
+    
+    @staticmethod
+    def get_hardware_id():
+        try:
+            with open(LicenseValidator.HARDWARE_FILE, 'r') as f:
+                return f.read().strip()
+        except:
+            return None
+    
+    @staticmethod
+    def get_stored_license():
+        try:
+            with open(LicenseValidator.LICENSE_FILE, 'r') as f:
+                return f.read().strip()
+        except:
+            return None
+    
+    @staticmethod
+    def validate_local():
+        license_key = LicenseValidator.get_stored_license()
+        hardware_id = LicenseValidator.get_hardware_id()
+        
+        if not license_key or not hardware_id:
+            return False
+        
+        # Parse license
+        parts = license_key.split('-')
+        if len(parts) != 5 or parts[0] != 'RIZKINET':
+            return False
+        
+        unique_code = f"{parts[1]}-{parts[2]}-{parts[3]}"
+        provided_hash = parts[4]
+        
+        # Generate expected hash
+        expected = hashlib.sha256(
+            f"{hardware_id}{unique_code}{LicenseValidator.SECRET_SALT}".encode()
+        ).hexdigest()[:8].upper()
+        
+        return provided_hash == expected
+    
+    @staticmethod
+    def check_online():
+        try:
+            license_key = LicenseValidator.get_stored_license()
+            hardware_id = LicenseValidator.get_hardware_id()
+            
+            response = requests.post(
+                f"{LicenseValidator.LICENSE_SERVER}/check",
+                json={
+                    'license': license_key,
+                    'hardware_id': hardware_id,
+                    'timestamp': datetime.now().isoformat()
+                },
+                timeout=5
+            )
+            return response.json().get('valid', False)
+        except:
+            # Jika offline, izinkan dengan validasi lokal saja (grace period)
+            return True
+
+# Singleton instance
+license_validator = LicenseValidator()
+EOF
+
+# Inject validasi ke aplikasi utama (app.py)
+if [ -f "/root/monitoring-wifi/app.py" ]; then
+    # Backup original
+    cp /root/monitoring-wifi/app.py /root/monitoring-wifi/app.py.backup
+    
+    # Tambahkan import dan check di awal file
+    sed -i '1i\
+# License Check - RizkiNet\
+import sys\
+sys.path.insert(0, "/root/monitoring-wifi")\
+from license_validator import license_validator\
+\
+if not license_validator.validate_local():\
+    print("License validation failed!")\
+    sys.exit(1)\
+' /root/monitoring-wifi/app.py
+fi
+
+# Buat systemd service file dengan validasi lisensi
+echo "[6/9] Membuat systemd service..."
+cat > /etc/systemd/system/monitoring-wifi.service << EOF
+[Unit]
+Description=Peycell NMS Monitoring Service (Licensed by RizkiNet)
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/monitoring-wifi
+Environment=PATH=/root/monitoring-wifi/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=PYTHONPATH=/root/monitoring-wifi
+
+# Pre-check license sebelum start
+ExecStartPre=/bin/bash -c 'if [ ! -f /etc/rizkinet/license.key ]; then echo "License not found!"; exit 1; fi'
+
+ExecStart=/root/monitoring-wifi/venv/bin/gunicorn --workers 1 --threads 4 --bind 0.0.0.0:5002 --timeout 120 app:app
+
+Restart=always
+RestartSec=10
+StartLimitInterval=60s
+StartLimitBurst=3
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Buat script untuk cek status lisensi
+cat > /usr/local/bin/check-license << 'EOF'
+#!/bin/bash
+echo "=========================================="
+echo "  RizkiNet License Status Checker"
+echo "=========================================="
+echo ""
+
+if [ -f /etc/rizkinet/license.key ]; then
+    echo "License Key: $(cat /etc/rizkinet/license.key)"
+    echo "Hardware ID: $(cat /etc/rizkinet/hardware.id 2>/dev/null || echo 'Not found')"
+    echo ""
+    echo "Status: $(systemctl is-active monitoring-wifi)"
+else
+    echo "✗ License not installed!"
+fi
+EOF
+chmod +x /usr/local/bin/check-license
+
+# Reload systemd dan enable service
+echo "[7/9] Mengaktifkan service..."
+systemctl daemon-reload
+systemctl enable monitoring-wifi
+
+# Start service
+echo "[8/9] Menjalankan service..."
+systemctl start monitoring-wifi
+
+# Cek status
+echo "[9/9] Mengecek status service..."
+sleep 2
+systemctl status monitoring-wifi --no-pager
+
+echo ""
+echo "=========================================="
+echo "  INSTALASI SELESAI!"
+echo "=========================================="
+echo ""
+echo "License Information:"
+echo "  Key: $LICENSE_KEY"
+echo "  Hardware ID: $(cat /etc/rizkinet/hardware.id)"
+echo ""
+echo "Service Status:"
+systemctl is-active monitoring-wifi && echo "✓ Service berjalan" || echo "✗ Service tidak berjalan"
+echo ""
+echo "Akses aplikasi di: http://$(curl -s ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}'):5002"
+echo ""
+echo "Perintah yang berguna:"
+echo "  - Cek status: systemctl status monitoring-wifi"
+echo "  - Restart: systemctl restart monitoring-wifi"
+echo "  - Stop: systemctl stop monitoring-wifi"
+echo "  - Log: journalctl -u monitoring-wifi -f"
+echo "  - Cek lisensi: check-license"
+echo ""
+echo "© 2024 RizkiNet - All Rights Reserved"
+echo ""
