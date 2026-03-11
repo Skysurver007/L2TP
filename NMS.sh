@@ -11,15 +11,15 @@ echo "=========================================="
 echo ""
 
 # Update dan upgrade sistem
-echo "[1/12] Updating dan upgrading sistem..."
+echo "[1/9] Updating dan upgrading sistem..."
 apt update && apt upgrade -y
 
 # Install git
-echo "[2/12] Menginstall Git..."
+echo "[2/9] Menginstall Git..."
 apt install git -y
 
 # Clone repository
-echo "[3/12] Cloning repository..."
+echo "[3/9] Cloning repository..."
 if [ -d "NMS" ]; then
     rm -rf NMS
 fi
@@ -27,11 +27,11 @@ git clone https://github.com/Skysurver007/NMS.git
 mv NMS monitoring-wifi
 
 # Install Python dan dependencies
-echo "[4/12] Menginstall Python dan dependencies..."
+echo "[4/9] Menginstall Python dan dependencies..."
 apt install python3 python3-pip python3-venv curl wget -y
 
 # Setup Python environment
-echo "[5/12] Setup Python virtual environment..."
+echo "[5/9] Setup Python virtual environment..."
 cd /root/monitoring-wifi
 rm -rf README.md
 python3 -m venv venv
@@ -40,7 +40,7 @@ pip install flask psutil requests routeros_api icmplib flask-compress gunicorn
 deactivate
 
 # Buat systemd service file
-echo "[6/12] Membuat systemd service..."
+echo "[6/9] Membuat systemd service..."
 cat > /etc/systemd/system/monitoring-wifi.service << 'EOF'
 [Unit]
 Description=Peycell NMS Monitoring Service
@@ -61,25 +61,17 @@ WantedBy=multi-user.target
 EOF
 
 # Reload systemd dan enable service
-echo "[7/12] Mengaktifkan service..."
+echo "[7/9] Mengaktifkan service..."
 systemctl daemon-reload
 systemctl enable monitoring-wifi
 
-# Install Node.js dan NPM
-echo "[8/12] Menginstall Node.js dan NPM..."
-apt install nodejs npm -y
-
-# Install NPM dependencies
-echo "[9/12] Menginstall NPM dependencies..."
-cd /root/monitoring-wifi && npm install
-
 # Start service
-echo "[10/12] Menjalankan service..."
+echo "[8/9] Menjalankan service..."
 systemctl start monitoring-wifi
 systemctl restart monitoring-wifi
 
 # Cek status
-echo "[11/12] Mengecek status service..."
+echo "[9/9] Mengecek status service..."
 sleep 2
 systemctl status monitoring-wifi --no-pager
 
