@@ -2,24 +2,26 @@
 
 #===============================================================================
 # NMS Monitoring WiFi - Professional Auto Installer
-# Version: 2.0
+# Version: 2.1 - Persistent Header Edition
 # Author: System Administrator
 # Description: One-click installer for Peycell NMS Monitoring Service
+# Features: Persistent NMS header during installation
 #===============================================================================
 
 #-------------------------------------------------------------------------------
 # KONFIGURASI
 #-------------------------------------------------------------------------------
-set -euo pipefail  # Strict mode: exit on error, undefined vars, pipe failures
+set -euo pipefail
 
-# Warna untuk output
+# Warna
 readonly RED='\033[0;31m'
 readonly GREEN='\033[0;32m'
 readonly YELLOW='\033[1;33m'
 readonly BLUE='\033[0;34m'
 readonly CYAN='\033[0;36m'
 readonly PURPLE='\033[0;35m'
-readonly NC='\033[0m' # No Color
+readonly WHITE='\033[1;37m'
+readonly NC='\033[0m'
 readonly BOLD='\033[1m'
 
 # Konfigurasi
@@ -35,50 +37,91 @@ TOTAL_STEPS=12
 START_TIME=$(date +%s)
 
 #-------------------------------------------------------------------------------
-# FUNGSI UTILITAS
+# FUNGSI HEADER PERSISTENT - NMS TIDAK PERNAH HILANG
 #-------------------------------------------------------------------------------
+
+# Simpan posisi cursor untuk header
+save_header_position() {
+    # Print header sekali di awal
+    echo -e "${CYAN}${BOLD}"
+    cat << "EOF"
+
+    ╔══════════════════════════════════════════════════════════════════╗
+    ║                                                                  ║
+    ║                  ███╗   ██╗███╗   ███╗███████╗                   ║
+    ║                  ████╗  ██║████╗ ████║██╔════╝                   ║
+    ║                  ██╔██╗ ██║██╔████╔██║███████╗                   ║
+    ║                  ██║╚██╗██║██║╚██╔╝██║╚════██║                   ║
+    ║                  ██║ ╚████║██║ ╚═╝ ██║███████║                   ║
+    ║                  ╚═╝  ╚═══╝╚═╝     ╚═╝╚══════╝                   ║
+    ║                                                                  ║
+    ║                     Network Monitoring System                    ║
+    ║                       Professional Edition                       ║
+    ║                                                                  ║
+    ╚══════════════════════════════════════════════════════════════════╝
+
+EOF
+    echo -e "${NC}"
+    echo -e "${WHITE}    Version:${NC} 2.1 | ${WHITE}Target:${NC} ${INSTALL_DIR} | ${WHITE}Port:${NC} ${PORT}"
+    echo -e "${YELLOW}    ────────────────────────────────────────────────────────────────${NC}"
+    echo ""
+    
+    # Simpan posisi line setelah header
+    HEADER_LINES=18  # Jumlah line header + spacing
+}
+
+# Fungsi print status di bawah header
+print_status() {
+    local type=$1
+    local message=$2
+    
+    case "$type" in
+        step)
+            echo -e "${PURPLE}    ▶ Step ${INSTALL_STEP}/${TOTAL_STEPS}:${NC} ${BOLD}${message}${NC}"
+            ;;
+        success)
+            echo -e "    ${GREEN}✔${NC} ${message}"
+            ;;
+        error)
+            echo -e "    ${RED}✘${NC} ${message}"
+            ;;
+        warning)
+            echo -e "    ${YELLOW}⚠${NC} ${message}"
+            ;;
+        info)
+            echo -e "    ${CYAN}ℹ${NC} ${message}"
+            ;;
+        progress)
+            echo -e "    ${BLUE}⏳${NC} ${message}"
+            ;;
+    esac
+}
 
 # Fungsi logging
 log() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE"
 }
 
-# Fungsi header
-print_header() {
-    clear
-    echo -e "${CYAN}"
-    cat << "EOF"
-    ╔══════════════════════════════════════════════════════════════════╗
-    ║                                                                  ║
-    ║           ███╗   ██╗███╗   ███╗███████╗    ██████╗               ║
-    ║           ████╗  ██║████╗ ████║██╔════╝   ██╔════╝               ║
-    ║           ██╔██╗ ██║██╔████╔██║███████╗   ██║  ███╗              ║
-    ║           ██║╚██╗██║██║╚██╔╝██║╚════██║   ██║   ██║              ║
-    ║           ██║ ╚████║██║ ╚═╝ ██║███████║██╗╚██████╔╝              ║
-    ║           ╚═╝  ╚═══╝╚═╝     ╚═╝╚══════╝╚═╝ ╚═════╝               ║
-    ║                                                                  ║
-    ║                  Network Monitoring System                       ║
-    ║                    Professional Edition                          ║
-    ╚══════════════════════════════════════════════════════════════════╝
-EOF
-    echo -e "${NC}"
-    echo -e "${BOLD}Version:${NC} 2.0 | ${BOLD}Date:${NC} $(date '+%Y-%m-%d %H:%M:%S')"
-    echo -e "${BOLD}Target:${NC} ${INSTALL_DIR} | ${BOLD}Port:${NC} ${PORT}"
-    echo -e "${YELLOW}────────────────────────────────────────────────────────────────────${NC}"
+# Fungsi step counter - NMS tetap terlihat!
+next_step() {
+    INSTALL_STEP=$((INSTALL_STEP + 1))
     echo ""
+    print_status "step" "$1"
+    log "STEP ${INSTALL_STEP}: $1"
+    sleep 1
 }
 
-# Fungsi progress bar
-show_progress() {
+# Fungsi progress bar inline
+show_progress_inline() {
     local current=$1
     local total=$2
     local message=$3
-    local width=50
+    local width=30
     local percentage=$((current * 100 / total))
     local filled=$((width * current / total))
     local empty=$((width - filled))
     
-    printf "\r${BLUE}[${NC}"
+    printf "\r    ${BLUE}[${NC}"
     printf "%${filled}s" | tr ' ' '█'
     printf "%${empty}s" | tr ' ' '░'
     printf "${BLUE}]${NC} ${CYAN}%3d%%${NC} ${YELLOW}%s${NC}" "$percentage" "$message"
@@ -88,50 +131,19 @@ show_progress() {
     fi
 }
 
-# Fungsi step counter
-next_step() {
-    INSTALL_STEP=$((INSTALL_STEP + 1))
-    echo ""
-    echo -e "${PURPLE}▶ Step ${INSTALL_STEP}/${TOTAL_STEPS}:${NC} ${BOLD}$1${NC}"
-    log "STEP ${INSTALL_STEP}: $1"
-    sleep 1
-}
+#-------------------------------------------------------------------------------
+# FUNGSI UTILITY
+#-------------------------------------------------------------------------------
 
-# Fungsi sukses
-success_msg() {
-    echo -e "${GREEN}✔${NC} $1"
-    log "SUCCESS: $1"
-}
-
-# Fungsi error
-error_msg() {
-    echo -e "${RED}✘${NC} $1"
-    log "ERROR: $1"
-}
-
-# Fungsi warning
-warning_msg() {
-    echo -e "${YELLOW}⚠${NC} $1"
-    log "WARNING: $1"
-}
-
-# Fungsi info
-info_msg() {
-    echo -e "${CYAN}ℹ${NC} $1"
-    log "INFO: $1"
-}
-
-# Fungsi cek root
 check_root() {
     if [[ $EUID -ne 0 ]]; then
-        error_msg "This script must be run as root!"
-        echo -e "${YELLOW}Please run: sudo $0${NC}"
+        print_status "error" "This script must be run as root!"
+        echo -e "    ${YELLOW}Please run: sudo $0${NC}"
         exit 1
     fi
-    success_msg "Root privileges verified"
+    print_status "success" "Root privileges verified"
 }
 
-# Fungsi cek OS
 check_os() {
     if [ -f /etc/os-release ]; then
         . /etc/os-release
@@ -142,100 +154,116 @@ check_os() {
         VER=$(uname -r)
     fi
     
-    info_msg "Detected OS: $OS $VER"
+    print_status "info" "Detected OS: $OS $VER"
     
     case "$OS" in
         *Debian*|*Ubuntu*)
-            success_msg "Supported operating system detected"
+            print_status "success" "Supported operating system detected"
             ;;
         *)
-            warning_msg "Untested operating system. Continuing anyway..."
+            print_status "warning" "Untested operating system. Continuing anyway..."
             ;;
     esac
 }
 
-# Fungsi cek koneksi internet
 check_internet() {
-    info_msg "Checking internet connectivity..."
+    print_status "info" "Checking internet connectivity..."
     if ping -c 1 github.com &> /dev/null; then
-        success_msg "Internet connection OK"
+        print_status "success" "Internet connection OK"
     else
-        error_msg "No internet connection detected!"
+        print_status "error" "No internet connection detected!"
         exit 1
     fi
 }
 
-# Fungsi cek port
 check_port() {
     if netstat -tuln 2>/dev/null | grep -q ":$PORT "; then
-        warning_msg "Port $PORT is already in use!"
-        echo -e "${YELLOW}Current service using port $PORT:${NC}"
-        netstat -tulpn 2>/dev/null | grep ":$PORT " || ss -tulpn | grep ":$PORT "
-        read -p "Continue anyway? [y/N]: " -n 1 -r
-        echo
+        print_status "warning" "Port $PORT is already in use!"
+        echo -e "    ${YELLOW}Current service using port $PORT:${NC}"
+        netstat -tulpn 2>/dev/null | grep ":$PORT " | head -1 || ss -tulpn 2>/dev/null | grep ":$PORT " | head -1
+        read -p "    Continue anyway? [y/N]: " -n 1 -r
+        echo ""
         if [[ ! $REPLY =~ ^[Yy]$ ]]; then
             exit 1
         fi
     else
-        success_msg "Port $PORT is available"
+        print_status "success" "Port $PORT is available"
     fi
 }
 
-# Fungsi backup existing
 backup_existing() {
     if [ -d "$INSTALL_DIR" ]; then
-        warning_msg "Existing installation found at $INSTALL_DIR"
+        print_status "warning" "Existing installation found at $INSTALL_DIR"
         local backup_name="${INSTALL_DIR}-backup-$(date +%Y%m%d-%H%M%S)"
-        info_msg "Creating backup: $backup_name"
+        print_status "info" "Creating backup: $backup_name"
         mv "$INSTALL_DIR" "$backup_name"
-        success_msg "Backup created successfully"
+        print_status "success" "Backup created successfully"
     fi
     
     if systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
-        warning_msg "Existing service is running. Stopping..."
-        systemctl stop "$SERVICE_NAME"
+        print_status "warning" "Existing service is running. Stopping..."
+        systemctl stop "$SERVICE_NAME" 2>/dev/null || true
         systemctl disable "$SERVICE_NAME" 2>/dev/null || true
-        success_msg "Old service stopped"
+        print_status "success" "Old service stopped"
     fi
 }
 
-# Fungsi install dependencies
 install_deps() {
-    show_progress 1 3 "Updating package lists..."
-    apt-get update -qq
+    print_status "progress" "Updating package lists..."
+    apt-get update -qq > /dev/null 2>&1 &
+    local pid=$!
+    while kill -0 $pid 2>/dev/null; do
+        echo -n "."
+        sleep 0.5
+    done
+    echo ""
+    print_status "success" "Package lists updated"
     
-    show_progress 2 3 "Upgrading packages..."
-    apt-get upgrade -y -qq
+    print_status "progress" "Upgrading packages..."
+    apt-get upgrade -y -qq > /dev/null 2>&1 &
+    pid=$!
+    while kill -0 $pid 2>/dev/null; do
+        echo -n "."
+        sleep 0.5
+    done
+    echo ""
+    print_status "success" "Packages upgraded"
     
-    show_progress 3 3 "Installing required packages..."
-    apt-get install -y -qq git python3 python3-pip python3-venv curl wget net-tools
-    
-    success_msg "System dependencies installed"
+    print_status "progress" "Installing required packages..."
+    apt-get install -y -qq git python3 python3-pip python3-venv curl wget net-tools > /dev/null 2>&1 &
+    pid=$!
+    while kill -0 $pid 2>/dev/null; do
+        echo -n "."
+        sleep 0.5
+    done
+    echo ""
+    print_status "success" "System dependencies installed (git, python3, pip, venv, curl, wget)"
 }
 
-# Fungsi setup python
 setup_python() {
     cd "$INSTALL_DIR"
     
-    show_progress 1 4 "Cleaning unnecessary files..."
+    show_progress_inline 1 4 "Cleaning unnecessary files..."
     rm -rf README.md .git .github 2>/dev/null || true
+    sleep 0.5
     
-    show_progress 2 4 "Creating virtual environment..."
-    python3 -m venv venv
+    show_progress_inline 2 4 "Creating virtual environment..."
+    python3 -m venv venv > /dev/null 2>&1
+    sleep 0.5
     
-    show_progress 3 4 "Activating virtual environment..."
+    show_progress_inline 3 4 "Activating virtual environment..."
     source venv/bin/activate
+    sleep 0.5
     
-    show_progress 4 4 "Installing Python packages..."
-    pip install --quiet --upgrade pip
-    pip install --quiet flask psutil requests routeros_api icmplib flask-compress gunicorn
+    show_progress_inline 4 4 "Installing Python packages (flask, psutil, gunicorn, etc)..."
+    pip install --quiet --upgrade pip > /dev/null 2>&1
+    pip install --quiet flask psutil requests routeros_api icmplib flask-compress gunicorn > /dev/null 2>&1
     
-    success_msg "Python environment configured"
+    print_status "success" "Python environment configured with all dependencies"
 }
 
-# Fungsi create service
 create_service() {
-    show_progress 1 2 "Creating systemd service file..."
+    show_progress_inline 1 2 "Creating systemd service file..."
     
     cat > /etc/systemd/system/${SERVICE_NAME}.service << EOF
 [Unit]
@@ -279,15 +307,14 @@ SyslogIdentifier=${SERVICE_NAME}
 WantedBy=multi-user.target
 EOF
 
-    show_progress 2 2 "Setting permissions..."
+    show_progress_inline 2 2 "Setting permissions..."
     chmod 644 /etc/systemd/system/${SERVICE_NAME}.service
     
-    success_msg "Systemd service created"
+    print_status "success" "Systemd service created: ${SERVICE_NAME}.service"
 }
 
-# Fungsi create logrotate
 setup_logrotate() {
-    info_msg "Configuring log rotation..."
+    print_status "info" "Configuring log rotation..."
     
     cat > /etc/logrotate.d/${SERVICE_NAME} << EOF
 /var/log/${SERVICE_NAME}-*.log {
@@ -305,231 +332,252 @@ setup_logrotate() {
 }
 EOF
 
-    success_msg "Log rotation configured (14 days retention)"
+    print_status "success" "Log rotation configured (14 days retention)"
 }
 
-# Fungsi create firewall rules
 setup_firewall() {
+    print_status "info" "Configuring firewall..."
+    
     if command -v ufw &> /dev/null; then
-        info_msg "Configuring UFW firewall..."
-        ufw allow ${PORT}/tcp comment "NMS Monitoring" 2>/dev/null || true
-        success_msg "UFW rule added for port ${PORT}"
+        ufw allow ${PORT}/tcp comment "NMS Monitoring" > /dev/null 2>&1 || true
+        print_status "success" "UFW rule added for port ${PORT}"
     elif command -v firewall-cmd &> /dev/null; then
-        info_msg "Configuring Firewalld..."
-        firewall-cmd --permanent --add-port=${PORT}/tcp 2>/dev/null || true
-        firewall-cmd --reload 2>/dev/null || true
-        success_msg "Firewalld rule added for port ${PORT}"
+        firewall-cmd --permanent --add-port=${PORT}/tcp > /dev/null 2>&1 || true
+        firewall-cmd --reload > /dev/null 2>&1 || true
+        print_status "success" "Firewalld rule added for port ${PORT}"
     else
-        warning_msg "No supported firewall detected. Please manually open port ${PORT}"
+        print_status "warning" "No supported firewall detected. Please manually open port ${PORT}"
     fi
 }
 
-# Fungsi start service
 start_service() {
-    show_progress 1 3 "Reloading systemd daemon..."
+    show_progress_inline 1 3 "Reloading systemd daemon..."
     systemctl daemon-reload
+    sleep 0.5
     
-    show_progress 2 3 "Enabling service..."
-    systemctl enable ${SERVICE_NAME}.service
+    show_progress_inline 2 3 "Enabling service..."
+    systemctl enable ${SERVICE_NAME}.service > /dev/null 2>&1
+    sleep 0.5
     
-    show_progress 3 3 "Starting service..."
+    show_progress_inline 3 3 "Starting service..."
     systemctl start ${SERVICE_NAME}.service
-    
     sleep 2
     
     if systemctl is-active --quiet ${SERVICE_NAME}.service; then
-        success_msg "Service is running"
+        print_status "success" "Service is running on port ${PORT}"
     else
-        error_msg "Service failed to start!"
-        systemctl status ${SERVICE_NAME}.service --no-pager
+        print_status "error" "Service failed to start!"
+        systemctl status ${SERVICE_NAME}.service --no-pager || true
         exit 1
     fi
 }
 
-# Fungsi verifikasi
 verify_installation() {
-    info_msg "Verifying installation..."
+    print_status "info" "Verifying installation..."
     
-    # Cek service status
     local status=$(systemctl is-active ${SERVICE_NAME}.service)
     if [ "$status" = "active" ]; then
-        success_msg "Service status: ACTIVE"
+        print_status "success" "Service status: ACTIVE ✓"
     else
-        error_msg "Service status: $status"
+        print_status "error" "Service status: $status"
     fi
     
-    # Cek port listening
     if netstat -tuln 2>/dev/null | grep -q ":$PORT " || ss -tuln 2>/dev/null | grep -q ":$PORT "; then
-        success_msg "Port $PORT is listening"
+        print_status "success" "Port $PORT is listening ✓"
     else
-        warning_msg "Port $PORT not detected yet (may need few seconds)"
+        print_status "warning" "Port $PORT not detected yet (may need few seconds)"
     fi
     
-    # Cek files
-    if [ -f "${INSTALL_DIR}/app.py" ] || [ -f "${INSTALL_DIR}/app.pyc" ]; then
-        success_msg "Application files found"
+    if [ -f "${INSTALL_DIR}/app.py" ] || [ -f "${INSTALL_DIR}/app.pyc" ] || ls ${INSTALL_DIR}/*.py &>/dev/null; then
+        print_status "success" "Application files found ✓"
     else
-        warning_msg "Application entry point not found (app.py)"
+        print_status "warning" "Application entry point not found (app.py) - check manually"
     fi
 }
 
-# Fungsi create management script
 create_management_script() {
-    info_msg "Creating management helper script..."
+    print_status "info" "Creating management helper script..."
     
     cat > /usr/local/bin/nmsctl << 'EOF'
 #!/bin/bash
-# NMS Control Script
+# NMS Control Script - Management Tool
 
 SERVICE_NAME="monitoring-wifi"
 INSTALL_DIR="/root/monitoring-wifi"
+PORT="5002"
+
+show_header() {
+    echo -e "\033[0;36m\033[1m"
+    echo "    ╔════════════════════════════════════════════════════════════╗"
+    echo "    ║                    NMS CONTROL CENTER                      ║"
+    echo "    ╚════════════════════════════════════════════════════════════╝"
+    echo -e "\033[0m"
+}
 
 case "$1" in
     status)
+        show_header
         systemctl status ${SERVICE_NAME}.service
         ;;
     start)
+        show_header
         systemctl start ${SERVICE_NAME}.service
-        echo "✔ Service started"
+        echo -e "\033[0;32m    ✔ Service started\033[0m"
+        echo -e "    \033[0;36mAccess: http://$(hostname -I | awk '{print $1}'):${PORT}\033[0m"
         ;;
     stop)
+        show_header
         systemctl stop ${SERVICE_NAME}.service
-        echo "✔ Service stopped"
+        echo -e "\033[0;32m    ✔ Service stopped\033[0m"
         ;;
     restart)
+        show_header
         systemctl restart ${SERVICE_NAME}.service
-        echo "✔ Service restarted"
+        echo -e "\033[0;32m    ✔ Service restarted\033[0m"
+        echo -e "    \033[0;36mAccess: http://$(hostname -I | awk '{print $1}'):${PORT}\033[0m"
         ;;
     logs)
+        show_header
+        echo -e "    \033[0;33mShowing realtime logs (Ctrl+C to exit):\033[0m"
         journalctl -u ${SERVICE_NAME}.service -f
         ;;
     update)
+        show_header
+        echo -e "    \033[0;36mUpdating NMS from GitHub...\033[0m"
         cd ${INSTALL_DIR}
-        git pull origin main 2>/dev/null || git pull origin master 2>/dev/null || echo "Git pull failed"
+        git pull origin main 2>/dev/null || git pull origin master 2>/dev/null || echo "Git pull failed or no git remote"
         systemctl restart ${SERVICE_NAME}.service
-        echo "✔ Update completed"
+        echo -e "\033[0;32m    ✔ Update completed\033[0m"
         ;;
     shell)
+        show_header
+        echo -e "    \033[0;36mEntering Python virtual environment...\033[0m"
+        echo -e "    \033[0;33mType 'exit' to leave\033[0m"
         cd ${INSTALL_DIR}
         source venv/bin/activate
         bash
         ;;
     backup)
+        show_header
         BACKUP_NAME="${INSTALL_DIR}-backup-$(date +%Y%m%d-%H%M%S)"
         cp -r ${INSTALL_DIR} ${BACKUP_NAME}
-        echo "✔ Backup created: ${BACKUP_NAME}"
+        echo -e "\033[0;32m    ✔ Backup created: ${BACKUP_NAME}\033[0m"
+        ;;
+    test)
+        show_header
+        echo -e "    \033[0;36mTesting connection to localhost:${PORT}...\033[0m"
+        curl -s -o /dev/null -w "    HTTP Status: %{http_code}\n    Response Time: %{time_total}s\n" http://localhost:${PORT}
         ;;
     *)
-        echo "NMS Control - Usage: nmsctl [command]"
+        show_header
+        echo "    Usage: nmsctl [command]"
         echo ""
-        echo "Commands:"
-        echo "  status    - Show service status"
-        echo "  start     - Start service"
-        echo "  stop      - Stop service"
-        echo "  restart   - Restart service"
-        echo "  logs      - View realtime logs"
-        echo "  update    - Update from git and restart"
-        echo "  shell     - Enter virtual environment shell"
-        echo "  backup    - Create backup of installation"
+        echo "    Commands:"
+        echo "      status    - Show service status"
+        echo "      start     - Start service"
+        echo "      stop      - Stop service"
+        echo "      restart   - Restart service"
+        echo "      logs      - View realtime logs"
+        echo "      update    - Update from GitHub and restart"
+        echo "      shell     - Enter virtual environment shell"
+        echo "      backup    - Create backup of installation"
+        echo "      test      - Test HTTP connection"
+        echo ""
+        echo "    Examples:"
+        echo "      nmsctl restart"
+        echo "      nmsctl logs"
         echo ""
         ;;
 esac
 EOF
 
     chmod +x /usr/local/bin/nmsctl
-    success_msg "Management script created: nmsctl"
+    print_status "success" "Management script created: nmsctl"
 }
 
-# Fungsi print summary
 print_summary() {
     local end_time=$(date +%s)
     local duration=$((end_time - START_TIME))
     local minutes=$((duration / 60))
     local seconds=$((duration % 60))
-    
     local ip_address=$(hostname -I | awk '{print $1}')
     
     echo ""
-    echo -e "${GREEN}"
-    cat << "EOF"
-    ╔══════════════════════════════════════════════════════════════════╗
-    ║                    INSTALLATION COMPLETE!                        ║
-    ╚══════════════════════════════════════════════════════════════════╝
-EOF
+    echo -e "${GREEN}${BOLD}"
+    echo "    ╔══════════════════════════════════════════════════════════════════╗"
+    echo "    ║                    INSTALLATION COMPLETE!                        ║"
+    echo "    ╚══════════════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
     
-    echo -e "${BOLD}⏱  Duration:${NC} ${minutes}m ${seconds}s"
-    echo -e "${BOLD}📁 Installation Directory:${NC} ${INSTALL_DIR}"
-    echo -e "${BOLD}🔧 Service Name:${NC} ${SERVICE_NAME}.service"
-    echo -e "${BOLD}🌐 Access URL:${NC} ${CYAN}http://${ip_address}:${PORT}${NC}"
-    echo -e "${BOLD}📝 Log Files:${NC} /var/log/${SERVICE_NAME}-*.log"
-    echo -e "${BOLD}📊 Log File:${NC} ${LOG_FILE}"
+    echo -e "    ${WHITE}⏱  Duration:${NC} ${minutes}m ${seconds}s"
+    echo -e "    ${WHITE}📁 Installation:${NC} ${INSTALL_DIR}"
+    echo -e "    ${WHITE}🔧 Service:${NC} ${SERVICE_NAME}.service"
+    echo -e "    ${WHITE}🌐 Access URL:${NC} ${CYAN}http://${ip_address}:${PORT}${NC}"
+    echo -e "    ${WHITE}📝 Logs:${NC} /var/log/${SERVICE_NAME}-*.log"
+    echo -e "    ${WHITE}📊 Install Log:${NC} ${LOG_FILE}"
     echo ""
     
-    echo -e "${YELLOW}────────────────────────────────────────────────────────────────────${NC}"
-    echo -e "${BOLD}🚀 Management Commands:${NC}"
+    echo -e "    ${YELLOW}────────────────────────────────────────────────────────────────${NC}"
+    echo -e "    ${WHITE}${BOLD}🚀 Quick Commands:${NC}"
     echo ""
-    echo -e "  ${CYAN}nmsctl status${NC}     - Check service status"
-    echo -e "  ${CYAN}nmsctl start${NC}      - Start service"
-    echo -e "  ${CYAN}nmsctl stop${NC}       - Stop service"
-    echo -e "  ${CYAN}nmsctl restart${NC}    - Restart service"
-    echo -e "  ${CYAN}nmsctl logs${NC}       - View realtime logs"
-    echo -e "  ${CYAN}nmsctl update${NC}     - Update from GitHub"
-    echo -e "  ${CYAN}nmsctl backup${NC}     - Create backup"
+    echo -e "      ${CYAN}nmsctl status${NC}     - Check service status"
+    echo -e "      ${CYAN}nmsctl restart${NC}    - Restart service"
+    echo -e "      ${CYAN}nmsctl logs${NC}       - View realtime logs"
+    echo -e "      ${CYAN}nmsctl test${NC}       - Test HTTP connection"
     echo ""
     
-    echo -e "${YELLOW}────────────────────────────────────────────────────────────────────${NC}"
-    echo -e "${BOLD}🔍 Systemd Commands:${NC}"
+    echo -e "    ${YELLOW}────────────────────────────────────────────────────────────────${NC}"
+    echo -e "    ${WHITE}${BOLD}🔍 Systemd Commands:${NC}"
     echo ""
-    echo -e "  ${CYAN}systemctl status ${SERVICE_NAME}${NC}"
-    echo -e "  ${CYAN}journalctl -u ${SERVICE_NAME} -f${NC}"
-    echo ""
-    
-    echo -e "${YELLOW}────────────────────────────────────────────────────────────────────${NC}"
-    echo -e "${BOLD}🔥 Quick Test:${NC}"
-    echo -e "  ${CYAN}curl -I http://localhost:${PORT}${NC}"
+    echo -e "      ${CYAN}systemctl status ${SERVICE_NAME}${NC}"
+    echo -e "      ${CYAN}journalctl -u ${SERVICE_NAME} -f${NC}"
     echo ""
     
     # Test koneksi
-    echo -e "${PURPLE}Testing local connection...${NC}"
-    sleep 1
+    print_status "info" "Testing local connection..."
+    sleep 2
     
-    if curl -s -o /dev/null -w "%{http_code}" http://localhost:${PORT} | grep -q "200\|302\|401"; then
-        echo -e "${GREEN}✔ Application is responding!${NC}"
+    local http_code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:${PORT} 2>/dev/null || echo "000")
+    if [ "$http_code" = "200" ] || [ "$http_code" = "302" ] || [ "$http_code" = "401" ]; then
+        print_status "success" "Application is responding (HTTP ${http_code})!"
     else
-        echo -e "${YELLOW}⚠ Application may still be starting. Wait 10-20 seconds...${NC}"
+        print_status "warning" "Application may still be starting (HTTP ${http_code}). Wait 10-20 seconds..."
     fi
     
     echo ""
-    echo -e "${CYAN}Thank you for using Peycell NMS Monitoring System!${NC}"
+    echo -e "    ${CYAN}Thank you for using NMS - Network Monitoring System!${NC}"
     echo ""
     
     log "Installation completed successfully in ${duration} seconds"
 }
 
-# Fungsi cleanup on error
 cleanup() {
     if [ $? -ne 0 ]; then
         echo ""
-        error_msg "Installation failed! Check log: ${LOG_FILE}"
-        echo -e "${YELLOW}For debugging:${NC}"
-        echo -e "  tail -n 50 ${LOG_FILE}"
-        echo -e "  systemctl status ${SERVICE_NAME}.service"
+        print_status "error" "Installation failed! Check log: ${LOG_FILE}"
+        echo -e "    ${YELLOW}Debug: tail -n 50 ${LOG_FILE}${NC}"
+        echo -e "    ${YELLOW}Status: systemctl status ${SERVICE_NAME}.service${NC}"
     fi
 }
 trap cleanup EXIT
 
 #-------------------------------------------------------------------------------
-# MAIN EXECUTION
+# MAIN EXECUTION - NMS HEADER TETAP TERLIHAT!
 #-------------------------------------------------------------------------------
 
 main() {
     # Inisialisasi log
+    mkdir -p "$(dirname "$LOG_FILE")" 2>/dev/null || true
     touch "$LOG_FILE"
-    exec 1> >(tee -a "$LOG_FILE")
-    exec 2> >(tee -a "$LOG_FILE" >&2)
     
-    print_header
+    # Simpan stdout dan stderr ke log TANPA menghilangkan NMS header
+    exec 3>&1 4>&2
+    exec 1> >(tee -a "$LOG_FILE") 2> >(tee -a "$LOG_FILE" >&2)
+    
+    # Print header NMS - INI TIDAK AKAN DI-CLEAR!
+    save_header_position
+    
+    # Jalankan semua check
     check_root
     check_os
     check_internet
@@ -545,10 +593,12 @@ main() {
     
     # Clone repository
     next_step "Cloning repository from GitHub"
-    info_msg "Source: ${GIT_REPO}"
-    git clone --depth 1 "$GIT_REPO" NMS
+    print_status "info" "Source: ${GIT_REPO}"
+    git clone --depth 1 "$GIT_REPO" NMS 2>&1 | while read line; do
+        echo "    ${CYAN}>${NC} $line"
+    done
     mv NMS monitoring-wifi
-    success_msg "Repository cloned to ${INSTALL_DIR}"
+    print_status "success" "Repository cloned to ${INSTALL_DIR}"
     
     # Setup Python
     next_step "Setting up Python virtual environment"
@@ -580,6 +630,9 @@ main() {
     
     # Summary
     print_summary
+    
+    # Restore original stdout/stderr
+    exec 1>&3 2>&4
 }
 
 # Jalankan main
