@@ -1,639 +1,249 @@
 #!/bin/bash
 
-#===============================================================================
-# NMS Monitoring WiFi - Professional Auto Installer
-# Version: 2.1 - Persistent Header Edition
-# Author: System Administrator
-# Description: One-click installer for Peycell NMS Monitoring Service
-# Features: Persistent NMS header during installation
-#===============================================================================
+# ╔═══════════════════════════════════════════════════════════════╗
+# ║           🚀 MONITORING WIFI - TAHAP 1 INSTALLER 🚀            ║
+# ║              Dibuat otomatis oleh RizkiNet                    ║
+# ╚═══════════════════════════════════════════════════════════════╝
 
-#-------------------------------------------------------------------------------
-# KONFIGURASI
-#-------------------------------------------------------------------------------
-set -euo pipefail
+set -e  # Exit jika ada error
 
-# Warna
-readonly RED='\033[0;31m'
-readonly GREEN='\033[0;32m'
-readonly YELLOW='\033[1;33m'
-readonly BLUE='\033[0;34m'
-readonly CYAN='\033[0;36m'
-readonly PURPLE='\033[0;35m'
-readonly WHITE='\033[1;37m'
-readonly NC='\033[0m'
-readonly BOLD='\033[1m'
+# Warna untuk tampilan menarik
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+MAGENTA='\033[0;35m'
+WHITE='\033[1;37m'
+BOLD='\033[1m'
+NC='\033[0m' # No Color
 
-# Konfigurasi
-readonly INSTALL_DIR="/root/monitoring-wifi"
-readonly SERVICE_NAME="monitoring-wifi"
-readonly PORT="5002"
-readonly GIT_REPO="https://github.com/Skysurver007/NMS.git"
-readonly LOG_FILE="/var/log/monitoring-wifi-install.log"
-
-# Variabel status
-INSTALL_STEP=0
-TOTAL_STEPS=12
-START_TIME=$(date +%s)
-
-#-------------------------------------------------------------------------------
-# FUNGSI HEADER PERSISTENT - NMS TIDAK PERNAH HILANG
-#-------------------------------------------------------------------------------
-
-# Simpan posisi cursor untuk header
-save_header_position() {
-    # Print header sekali di awal
-    echo -e "${CYAN}${BOLD}"
-    cat << "EOF"
-
-    ╔══════════════════════════════════════════════════════════════════╗
-    ║                                                                  ║
-    ║                  ███╗   ██╗███╗   ███╗███████╗                   ║
-    ║                  ████╗  ██║████╗ ████║██╔════╝                   ║
-    ║                  ██╔██╗ ██║██╔████╔██║███████╗                   ║
-    ║                  ██║╚██╗██║██║╚██╔╝██║╚════██║                   ║
-    ║                  ██║ ╚████║██║ ╚═╝ ██║███████║                   ║
-    ║                  ╚═╝  ╚═══╝╚═╝     ╚═╝╚══════╝                   ║
-    ║                                                                  ║
-    ║                     Network Monitoring System                    ║
-    ║                       Professional Edition                       ║
-    ║                                                                  ║
-    ╚══════════════════════════════════════════════════════════════════╝
-
-EOF
+# Fungsi header keren
+show_header() {
+    clear
+    echo -e "${CYAN}"
+    echo "╔═══════════════════════════════════════════════════════════════╗"
+    echo "║  ██╗   ██╗███████╗███╗   ██╗ ██████╗ ██╗   ██╗██╗███╗   ██╗  ║"
+    echo "║  ██║   ██║██╔════╝████╗  ██║██╔═══██╗██║   ██║██║████╗  ██║  ║"
+    echo "║  ██║   ██║█████╗  ██╔██╗ ██║██║   ██║██║   ██║██║██╔██╗ ██║  ║"
+    echo "║  ╚██╗ ██╔╝██╔══╝  ██║╚██╗██║██║   ██║╚██╗ ██╔╝██║██║╚██╗██║  ║"
+    echo "║   ╚████╔╝ ███████╗██║ ╚████║╚██████╔╝ ╚████╔╝ ██║██║ ╚████║  ║"
+    echo "║    ╚═══╝  ╚══════╝╚═╝  ╚═══╝ ╚═════╝   ╚═══╝  ╚═╝╚═╝  ╚═══╝  ║"
+    echo "║                                                               ║"
+    echo "║           📡 NETWORK MONITORING SYSTEM 📡                     ║"
+    echo "║                    ${YELLOW}TAHAP 1: PERSIAPAN${CYAN}                         ║"
+    echo "╚═══════════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
-    echo -e "${WHITE}    Version:${NC} 2.1 | ${WHITE}Target:${NC} ${INSTALL_DIR} | ${WHITE}Port:${NC} ${PORT}"
-    echo -e "${YELLOW}    ────────────────────────────────────────────────────────────────${NC}"
-    echo ""
+}
+
+# Fungsi progress bar
+progress_bar() {
+    local duration=$1
+    local prefix=$2
+    local width=40
+    local fill="█"
+    local empty="░"
     
-    # Simpan posisi line setelah header
-    HEADER_LINES=18  # Jumlah line header + spacing
-}
-
-# Fungsi print status di bawah header
-print_status() {
-    local type=$1
-    local message=$2
-    
-    case "$type" in
-        step)
-            echo -e "${PURPLE}    ▶ Step ${INSTALL_STEP}/${TOTAL_STEPS}:${NC} ${BOLD}${message}${NC}"
-            ;;
-        success)
-            echo -e "    ${GREEN}✔${NC} ${message}"
-            ;;
-        error)
-            echo -e "    ${RED}✘${NC} ${message}"
-            ;;
-        warning)
-            echo -e "    ${YELLOW}⚠${NC} ${message}"
-            ;;
-        info)
-            echo -e "    ${CYAN}ℹ${NC} ${message}"
-            ;;
-        progress)
-            echo -e "    ${BLUE}⏳${NC} ${message}"
-            ;;
-    esac
-}
-
-# Fungsi logging
-log() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE"
-}
-
-# Fungsi step counter - NMS tetap terlihat!
-next_step() {
-    INSTALL_STEP=$((INSTALL_STEP + 1))
+    for ((i=0; i<=width; i++)); do
+        local percentage=$((i * 100 / width))
+        local filled=$(printf "%${i}s" | tr ' ' "$fill")
+        local unfilled=$(printf "%$((width-i))s" | tr ' ' "$empty")
+        printf "\r${prefix} [${CYAN}${filled}${NC}${unfilled}] ${GREEN}${percentage}%%${NC}"
+        sleep $(echo "scale=3; $duration/$width" | bc -l 2>/dev/null || echo "0.05")
+    done
     echo ""
-    print_status "step" "$1"
-    log "STEP ${INSTALL_STEP}: $1"
-    sleep 1
 }
 
-# Fungsi progress bar inline
-show_progress_inline() {
+# Fungsi spinner loading
+spinner() {
+    local msg=$1
+    local chars="⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+    local i=0
+    while true; do
+        printf "\r${CYAN}${chars:$i:1}${NC} ${WHITE}${msg}${NC}"
+        i=$(( (i+1) % 10 ))
+        sleep 0.1
+    done
+}
+
+# Fungsi sukses
+success() {
+    echo -e "\r${GREEN}✓${NC} $1"
+}
+
+# Fungsi info
+info() {
+    echo -e "${BLUE}ℹ${NC} $1"
+}
+
+# Fungsi step header
+step_header() {
     local current=$1
     local total=$2
-    local message=$3
-    local width=30
-    local percentage=$((current * 100 / total))
-    local filled=$((width * current / total))
-    local empty=$((width - filled))
-    
-    printf "\r    ${BLUE}[${NC}"
-    printf "%${filled}s" | tr ' ' '█'
-    printf "%${empty}s" | tr ' ' '░'
-    printf "${BLUE}]${NC} ${CYAN}%3d%%${NC} ${YELLOW}%s${NC}" "$percentage" "$message"
-    
-    if [ $current -eq $total ]; then
-        echo ""
-    fi
-}
-
-#-------------------------------------------------------------------------------
-# FUNGSI UTILITY
-#-------------------------------------------------------------------------------
-
-check_root() {
-    if [[ $EUID -ne 0 ]]; then
-        print_status "error" "This script must be run as root!"
-        echo -e "    ${YELLOW}Please run: sudo $0${NC}"
-        exit 1
-    fi
-    print_status "success" "Root privileges verified"
-}
-
-check_os() {
-    if [ -f /etc/os-release ]; then
-        . /etc/os-release
-        OS=$NAME
-        VER=$VERSION_ID
-    else
-        OS=$(uname -s)
-        VER=$(uname -r)
-    fi
-    
-    print_status "info" "Detected OS: $OS $VER"
-    
-    case "$OS" in
-        *Debian*|*Ubuntu*)
-            print_status "success" "Supported operating system detected"
-            ;;
-        *)
-            print_status "warning" "Untested operating system. Continuing anyway..."
-            ;;
-    esac
-}
-
-check_internet() {
-    print_status "info" "Checking internet connectivity..."
-    if ping -c 1 github.com &> /dev/null; then
-        print_status "success" "Internet connection OK"
-    else
-        print_status "error" "No internet connection detected!"
-        exit 1
-    fi
-}
-
-check_port() {
-    if netstat -tuln 2>/dev/null | grep -q ":$PORT "; then
-        print_status "warning" "Port $PORT is already in use!"
-        echo -e "    ${YELLOW}Current service using port $PORT:${NC}"
-        netstat -tulpn 2>/dev/null | grep ":$PORT " | head -1 || ss -tulpn 2>/dev/null | grep ":$PORT " | head -1
-        read -p "    Continue anyway? [y/N]: " -n 1 -r
-        echo ""
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            exit 1
-        fi
-    else
-        print_status "success" "Port $PORT is available"
-    fi
-}
-
-backup_existing() {
-    if [ -d "$INSTALL_DIR" ]; then
-        print_status "warning" "Existing installation found at $INSTALL_DIR"
-        local backup_name="${INSTALL_DIR}-backup-$(date +%Y%m%d-%H%M%S)"
-        print_status "info" "Creating backup: $backup_name"
-        mv "$INSTALL_DIR" "$backup_name"
-        print_status "success" "Backup created successfully"
-    fi
-    
-    if systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
-        print_status "warning" "Existing service is running. Stopping..."
-        systemctl stop "$SERVICE_NAME" 2>/dev/null || true
-        systemctl disable "$SERVICE_NAME" 2>/dev/null || true
-        print_status "success" "Old service stopped"
-    fi
-}
-
-install_deps() {
-    print_status "progress" "Updating package lists..."
-    apt-get update -qq > /dev/null 2>&1 &
-    local pid=$!
-    while kill -0 $pid 2>/dev/null; do
-        echo -n "."
-        sleep 0.5
-    done
+    local title=$3
     echo ""
-    print_status "success" "Package lists updated"
-    
-    print_status "progress" "Upgrading packages..."
-    apt-get upgrade -y -qq > /dev/null 2>&1 &
-    pid=$!
-    while kill -0 $pid 2>/dev/null; do
-        echo -n "."
-        sleep 0.5
-    done
-    echo ""
-    print_status "success" "Packages upgraded"
-    
-    print_status "progress" "Installing required packages..."
-    apt-get install -y -qq git python3 python3-pip python3-venv curl wget net-tools > /dev/null 2>&1 &
-    pid=$!
-    while kill -0 $pid 2>/dev/null; do
-        echo -n "."
-        sleep 0.5
-    done
-    echo ""
-    print_status "success" "System dependencies installed (git, python3, pip, venv, curl, wget)"
+    echo -e "${YELLOW}[${current}/${total}]${NC} ${BOLD}${title}${NC}"
+    echo -e "${CYAN}$(printf '=%.0s' {1..50})${NC}"
 }
 
-setup_python() {
-    cd "$INSTALL_DIR"
-    
-    show_progress_inline 1 4 "Cleaning unnecessary files..."
-    rm -rf README.md .git .github 2>/dev/null || true
-    sleep 0.5
-    
-    show_progress_inline 2 4 "Creating virtual environment..."
-    python3 -m venv venv > /dev/null 2>&1
-    sleep 0.5
-    
-    show_progress_inline 3 4 "Activating virtual environment..."
-    source venv/bin/activate
-    sleep 0.5
-    
-    show_progress_inline 4 4 "Installing Python packages (flask, psutil, gunicorn, etc)..."
-    pip install --quiet --upgrade pip > /dev/null 2>&1
-    pip install --quiet flask psutil requests routeros_api icmplib flask-compress gunicorn > /dev/null 2>&1
-    
-    print_status "success" "Python environment configured with all dependencies"
-}
+# ═══════════════════════════════════════════════════════════════
+# MAIN INSTALLATION
+# ═══════════════════════════════════════════════════════════════
 
-create_service() {
-    show_progress_inline 1 2 "Creating systemd service file..."
-    
-    cat > /etc/systemd/system/${SERVICE_NAME}.service << EOF
-[Unit]
-Description=Peycell NMS Monitoring Service
-Documentation=https://github.com/Skysurfer007/NMS
-After=network.target network-online.target
-Wants=network-online.target
+show_header
 
-[Service]
-Type=simple
-User=root
-WorkingDirectory=${INSTALL_DIR}
-Environment=PATH=${INSTALL_DIR}/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-Environment=PYTHONUNBUFFERED=1
-Environment=FLASK_ENV=production
+echo -e "${MAGENTA}╔═══════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${MAGENTA}║           🛠️  MULAI INSTALASI TAHAP 1                         ║${NC}"
+echo -e "${MAGENTA}╚═══════════════════════════════════════════════════════════════╝${NC}"
+echo ""
 
-ExecStart=${INSTALL_DIR}/venv/bin/gunicorn \\
-    --workers 1 \\
-    --threads 4 \\
-    --bind 0.0.0.0:${PORT} \\
-    --timeout 120 \\
-    --access-logfile /var/log/${SERVICE_NAME}-access.log \\
-    --error-logfile /var/log/${SERVICE_NAME}-error.log \\
-    --capture-output \\
-    --enable-stdio-inheritance \\
-    app:app
+# [1/5] Update sistem
+step_header "1" "5" "📦 Updating dan Upgrading Sistem"
+spinner "Updating package list..." &
+PID=$!
+apt update > /dev/null 2>&1
+kill $PID 2>/dev/null
+wait $PID 2>/dev/null
+success "Package list updated"
 
-ExecReload=/bin/kill -s HUP \$MAINPID
-ExecStop=/bin/kill -s TERM \$MAINPID
+spinner "Upgrading packages..." &
+PID=$!
+apt upgrade -y > /dev/null 2>&1
+kill $PID 2>/dev/null
+wait $PID 2>/dev/null
+success "Packages upgraded"
+progress_bar 0.5 "Progress"
 
-Restart=always
-RestartSec=10
-StartLimitInterval=60s
-StartLimitBurst=3
+# [2/5] Install Git
+step_header "2" "5" "🔧 Menginstall Git"
+spinner "Menginstall Git..." &
+PID=$!
+apt install git -y > /dev/null 2>&1
+kill $PID 2>/dev/null
+wait $PID 2>/dev/null
+GIT_VERSION=$(git --version 2>/dev/null | awk '{print $3}')
+success "Git v${GIT_VERSION} berhasil diinstall"
+progress_bar 0.3 "Progress"
 
-StandardOutput=journal
-StandardError=journal
-SyslogIdentifier=${SERVICE_NAME}
+# [3/5] Clone repository
+step_header "3" "5" "📥 Cloning Repository"
+if [ -d "NMS" ]; then
+    info "Menghapus folder NMS lama..."
+    rm -rf NMS
+fi
+if [ -d "monitoring-wifi" ]; then
+    info "Menghapus folder monitoring-wifi lama..."
+    rm -rf monitoring-wifi
+fi
 
-[Install]
-WantedBy=multi-user.target
-EOF
+spinner "Mengunduh source code dari GitHub..." &
+PID=$!
+git clone https://github.com/Skysurver007/NMS.git > /dev/null 2>&1
+mv NMS monitoring-wifi
+kill $PID 2>/dev/null
+wait $PID 2>/dev/null
+success "Repository berhasil di-clone ke /root/monitoring-wifi"
+progress_bar 0.5 "Progress"
 
-    show_progress_inline 2 2 "Setting permissions..."
-    chmod 644 /etc/systemd/system/${SERVICE_NAME}.service
-    
-    print_status "success" "Systemd service created: ${SERVICE_NAME}.service"
-}
+# [4/5] Install Python dan dependencies
+step_header "4" "5" "🐍 Menginstall Python & Dependencies"
+spinner "Menginstall Python3 dan pip..." &
+PID=$!
+apt install python3 python3-pip python3-venv curl wget -y > /dev/null 2>&1
+kill $PID 2>/dev/null
+wait $PID 2>/dev/null
+PYTHON_VERSION=$(python3 --version 2>/dev/null)
+success "${PYTHON_VERSION} berhasil diinstall"
 
-setup_logrotate() {
-    print_status "info" "Configuring log rotation..."
-    
-    cat > /etc/logrotate.d/${SERVICE_NAME} << EOF
-/var/log/${SERVICE_NAME}-*.log {
-    daily
-    rotate 14
-    compress
-    delaycompress
-    missingok
-    notifempty
-    create 0644 root root
-    sharedscripts
-    postrotate
-        systemctl reload ${SERVICE_NAME} > /dev/null 2>&1 || true
-    endscript
-}
-EOF
+spinner "Menginstall tools tambahan (curl, wget)..." &
+PID=$!
+# Sudah diinstall di atas
+kill $PID 2>/dev/null
+wait $PID 2>/dev/null
+success "Tools tambahan siap"
+progress_bar 0.5 "Progress"
 
-    print_status "success" "Log rotation configured (14 days retention)"
-}
+# [5/5] Setup Python environment
+step_header "5" "5" "⚙️  Setup Python Virtual Environment"
 
-setup_firewall() {
-    print_status "info" "Configuring firewall..."
-    
-    if command -v ufw &> /dev/null; then
-        ufw allow ${PORT}/tcp comment "NMS Monitoring" > /dev/null 2>&1 || true
-        print_status "success" "UFW rule added for port ${PORT}"
-    elif command -v firewall-cmd &> /dev/null; then
-        firewall-cmd --permanent --add-port=${PORT}/tcp > /dev/null 2>&1 || true
-        firewall-cmd --reload > /dev/null 2>&1 || true
-        print_status "success" "Firewalld rule added for port ${PORT}"
-    else
-        print_status "warning" "No supported firewall detected. Please manually open port ${PORT}"
-    fi
-}
+cd /root/monitoring-wifi
 
-start_service() {
-    show_progress_inline 1 3 "Reloading systemd daemon..."
-    systemctl daemon-reload
-    sleep 0.5
-    
-    show_progress_inline 2 3 "Enabling service..."
-    systemctl enable ${SERVICE_NAME}.service > /dev/null 2>&1
-    sleep 0.5
-    
-    show_progress_inline 3 3 "Starting service..."
-    systemctl start ${SERVICE_NAME}.service
-    sleep 2
-    
-    if systemctl is-active --quiet ${SERVICE_NAME}.service; then
-        print_status "success" "Service is running on port ${PORT}"
-    else
-        print_status "error" "Service failed to start!"
-        systemctl status ${SERVICE_NAME}.service --no-pager || true
-        exit 1
-    fi
-}
+if [ -f "README.md" ]; then
+    info "Membersihkan file README.md..."
+    rm -rf README.md
+fi
 
-verify_installation() {
-    print_status "info" "Verifying installation..."
-    
-    local status=$(systemctl is-active ${SERVICE_NAME}.service)
-    if [ "$status" = "active" ]; then
-        print_status "success" "Service status: ACTIVE ✓"
-    else
-        print_status "error" "Service status: $status"
-    fi
-    
-    if netstat -tuln 2>/dev/null | grep -q ":$PORT " || ss -tuln 2>/dev/null | grep -q ":$PORT "; then
-        print_status "success" "Port $PORT is listening ✓"
-    else
-        print_status "warning" "Port $PORT not detected yet (may need few seconds)"
-    fi
-    
-    if [ -f "${INSTALL_DIR}/app.py" ] || [ -f "${INSTALL_DIR}/app.pyc" ] || ls ${INSTALL_DIR}/*.py &>/dev/null; then
-        print_status "success" "Application files found ✓"
-    else
-        print_status "warning" "Application entry point not found (app.py) - check manually"
-    fi
-}
+spinner "Membuat virtual environment..." &
+PID=$!
+python3 -m venv venv > /dev/null 2>&1
+kill $PID 2>/dev/null
+wait $PID 2>/dev/null
+success "Virtual environment dibuat di ./venv"
 
-create_management_script() {
-    print_status "info" "Creating management helper script..."
-    
-    cat > /usr/local/bin/nmsctl << 'EOF'
-#!/bin/bash
-# NMS Control Script - Management Tool
+echo ""
+info "Menginstall Python packages:"
+echo -e "  ${CYAN}•${NC} flask"
+echo -e "  ${CYAN}•${NC} psutil"
+echo -e "  ${CYAN}•${NC} requests"
+echo -e "  ${CYAN}•${NC} routeros_api"
+echo -e "  ${CYAN}•${NC} icmplib"
+echo -e "  ${CYAN}•${NC} flask-compress"
+echo -e "  ${CYAN}•${NC} gunicorn"
 
-SERVICE_NAME="monitoring-wifi"
-INSTALL_DIR="/root/monitoring-wifi"
-PORT="5002"
+spinner "Menginstall packages (ini mungkin memerlukan waktu)..." &
+PID=$!
+source venv/bin/activate
+pip install flask psutil requests routeros_api icmplib flask-compress gunicorn > /dev/null 2>&1
+deactivate
+kill $PID 2>/dev/null
+wait $PID 2>/dev/null
+success "Semua packages berhasil diinstall"
 
-show_header() {
-    echo -e "\033[0;36m\033[1m"
-    echo "    ╔════════════════════════════════════════════════════════════╗"
-    echo "    ║                    NMS CONTROL CENTER                      ║"
-    echo "    ╚════════════════════════════════════════════════════════════╝"
-    echo -e "\033[0m"
-}
+progress_bar 0.8 "Progress"
 
-case "$1" in
-    status)
-        show_header
-        systemctl status ${SERVICE_NAME}.service
-        ;;
-    start)
-        show_header
-        systemctl start ${SERVICE_NAME}.service
-        echo -e "\033[0;32m    ✔ Service started\033[0m"
-        echo -e "    \033[0;36mAccess: http://$(hostname -I | awk '{print $1}'):${PORT}\033[0m"
-        ;;
-    stop)
-        show_header
-        systemctl stop ${SERVICE_NAME}.service
-        echo -e "\033[0;32m    ✔ Service stopped\033[0m"
-        ;;
-    restart)
-        show_header
-        systemctl restart ${SERVICE_NAME}.service
-        echo -e "\033[0;32m    ✔ Service restarted\033[0m"
-        echo -e "    \033[0;36mAccess: http://$(hostname -I | awk '{print $1}'):${PORT}\033[0m"
-        ;;
-    logs)
-        show_header
-        echo -e "    \033[0;33mShowing realtime logs (Ctrl+C to exit):\033[0m"
-        journalctl -u ${SERVICE_NAME}.service -f
-        ;;
-    update)
-        show_header
-        echo -e "    \033[0;36mUpdating NMS from GitHub...\033[0m"
-        cd ${INSTALL_DIR}
-        git pull origin main 2>/dev/null || git pull origin master 2>/dev/null || echo "Git pull failed or no git remote"
-        systemctl restart ${SERVICE_NAME}.service
-        echo -e "\033[0;32m    ✔ Update completed\033[0m"
-        ;;
-    shell)
-        show_header
-        echo -e "    \033[0;36mEntering Python virtual environment...\033[0m"
-        echo -e "    \033[0;33mType 'exit' to leave\033[0m"
-        cd ${INSTALL_DIR}
-        source venv/bin/activate
-        bash
-        ;;
-    backup)
-        show_header
-        BACKUP_NAME="${INSTALL_DIR}-backup-$(date +%Y%m%d-%H%M%S)"
-        cp -r ${INSTALL_DIR} ${BACKUP_NAME}
-        echo -e "\033[0;32m    ✔ Backup created: ${BACKUP_NAME}\033[0m"
-        ;;
-    test)
-        show_header
-        echo -e "    \033[0;36mTesting connection to localhost:${PORT}...\033[0m"
-        curl -s -o /dev/null -w "    HTTP Status: %{http_code}\n    Response Time: %{time_total}s\n" http://localhost:${PORT}
-        ;;
-    *)
-        show_header
-        echo "    Usage: nmsctl [command]"
-        echo ""
-        echo "    Commands:"
-        echo "      status    - Show service status"
-        echo "      start     - Start service"
-        echo "      stop      - Stop service"
-        echo "      restart   - Restart service"
-        echo "      logs      - View realtime logs"
-        echo "      update    - Update from GitHub and restart"
-        echo "      shell     - Enter virtual environment shell"
-        echo "      backup    - Create backup of installation"
-        echo "      test      - Test HTTP connection"
-        echo ""
-        echo "    Examples:"
-        echo "      nmsctl restart"
-        echo "      nmsctl logs"
-        echo ""
-        ;;
-esac
-EOF
+# ═══════════════════════════════════════════════════════════════
+# SELESAI
+# ═══════════════════════════════════════════════════════════════
 
-    chmod +x /usr/local/bin/nmsctl
-    print_status "success" "Management script created: nmsctl"
-}
+echo ""
+echo -e "${GREEN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${GREEN}║           ✅ TAHAP 1 BERHASIL SELESAI!                        ║${NC}"
+echo -e "${GREEN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+echo ""
 
-print_summary() {
-    local end_time=$(date +%s)
-    local duration=$((end_time - START_TIME))
-    local minutes=$((duration / 60))
-    local seconds=$((duration % 60))
-    local ip_address=$(hostname -I | awk '{print $1}')
-    
-    echo ""
-    echo -e "${GREEN}${BOLD}"
-    echo "    ╔══════════════════════════════════════════════════════════════════╗"
-    echo "    ║                    INSTALLATION COMPLETE!                        ║"
-    echo "    ╚══════════════════════════════════════════════════════════════════╝"
-    echo -e "${NC}"
-    
-    echo -e "    ${WHITE}⏱  Duration:${NC} ${minutes}m ${seconds}s"
-    echo -e "    ${WHITE}📁 Installation:${NC} ${INSTALL_DIR}"
-    echo -e "    ${WHITE}🔧 Service:${NC} ${SERVICE_NAME}.service"
-    echo -e "    ${WHITE}🌐 Access URL:${NC} ${CYAN}http://${ip_address}:${PORT}${NC}"
-    echo -e "    ${WHITE}📝 Logs:${NC} /var/log/${SERVICE_NAME}-*.log"
-    echo -e "    ${WHITE}📊 Install Log:${NC} ${LOG_FILE}"
-    echo ""
-    
-    echo -e "    ${YELLOW}────────────────────────────────────────────────────────────────${NC}"
-    echo -e "    ${WHITE}${BOLD}🚀 Quick Commands:${NC}"
-    echo ""
-    echo -e "      ${CYAN}nmsctl status${NC}     - Check service status"
-    echo -e "      ${CYAN}nmsctl restart${NC}    - Restart service"
-    echo -e "      ${CYAN}nmsctl logs${NC}       - View realtime logs"
-    echo -e "      ${CYAN}nmsctl test${NC}       - Test HTTP connection"
-    echo ""
-    
-    echo -e "    ${YELLOW}────────────────────────────────────────────────────────────────${NC}"
-    echo -e "    ${WHITE}${BOLD}🔍 Systemd Commands:${NC}"
-    echo ""
-    echo -e "      ${CYAN}systemctl status ${SERVICE_NAME}${NC}"
-    echo -e "      ${CYAN}journalctl -u ${SERVICE_NAME} -f${NC}"
-    echo ""
-    
-    # Test koneksi
-    print_status "info" "Testing local connection..."
-    sleep 2
-    
-    local http_code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:${PORT} 2>/dev/null || echo "000")
-    if [ "$http_code" = "200" ] || [ "$http_code" = "302" ] || [ "$http_code" = "401" ]; then
-        print_status "success" "Application is responding (HTTP ${http_code})!"
-    else
-        print_status "warning" "Application may still be starting (HTTP ${http_code}). Wait 10-20 seconds..."
-    fi
-    
-    echo ""
-    echo -e "    ${CYAN}Thank you for using NMS - Network Monitoring System!${NC}"
-    echo ""
-    
-    log "Installation completed successfully in ${duration} seconds"
-}
+echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${CYAN}║  📂 STRUKTUR DIREKTORI:                                       ║${NC}"
+echo -e "${CYAN}╠═══════════════════════════════════════════════════════════════╣${NC}"
+echo -e "${CYAN}║  ${WHITE}/root/monitoring-wifi/${NC}                                      ${CYAN}║${NC}"
+echo -e "${CYAN}║  ├── ${YELLOW}venv/${NC}          ← Virtual Environment                   ${CYAN}║${NC}"
+echo -e "${CYAN}║  ├── ${YELLOW}app.py${NC}         ← Main Application (jika ada)          ${CYAN}║${NC}"
+echo -e "${CYAN}║  └── ${YELLOW}[source files]${NC} ← File-file aplikasi                  ${CYAN}║${NC}"
+echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+echo ""
 
-cleanup() {
-    if [ $? -ne 0 ]; then
-        echo ""
-        print_status "error" "Installation failed! Check log: ${LOG_FILE}"
-        echo -e "    ${YELLOW}Debug: tail -n 50 ${LOG_FILE}${NC}"
-        echo -e "    ${YELLOW}Status: systemctl status ${SERVICE_NAME}.service${NC}"
-    fi
-}
-trap cleanup EXIT
+echo -e "${YELLOW}╔═══════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${YELLOW}║  📝 CATATAN PENTING:                                          ║${NC}"
+echo -e "${YELLOW}╠═══════════════════════════════════════════════════════════════╣${NC}"
+echo -e "${YELLOW}║  ${NC}Untuk menjalankan aplikasi secara manual:                    ${YELLOW}║${NC}"
+echo -e "${YELLOW}║                                                               ║${NC}"
+echo -e "${YELLOW}║  ${WHITE}cd /root/monitoring-wifi${NC}                                     ${YELLOW}║${NC}"
+echo -e "${YELLOW}║  ${WHITE}source venv/bin/activate${NC}                                     ${YELLOW}║${NC}"
+echo -e "${YELLOW}║  ${WHITE}python app.py${NC}         ${CYAN}# atau${NC} ${WHITE}gunicorn --bind 0.0.0.0:5002 app:app${NC}  ${YELLOW}║${NC}"
+echo -e "${YELLOW}║                                                               ║${NC}"
+echo -e "${YELLOW}║  ${NC}Untuk keluar dari virtual environment:                       ${YELLOW}║${NC}"
+echo -e "${YELLOW}║  ${WHITE}deactivate${NC}                                                   ${YELLOW}║${NC}"
+echo -e "${YELLOW}╚═══════════════════════════════════════════════════════════════╝${NC}"
+echo ""
 
-#-------------------------------------------------------------------------------
-# MAIN EXECUTION - NMS HEADER TETAP TERLIHAT!
-#-------------------------------------------------------------------------------
+echo -e "${MAGENTA}╔═══════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${MAGENTA}║  🚀 LANGKAH SELANJUTNYA (TAHAP 2):                            ║${NC}"
+echo -e "${MAGENTA}╠═══════════════════════════════════════════════════════════════╣${NC}"
+echo -e "${MAGENTA}║  ${NC}Jalankan script Tahap 2 untuk:                               ${MAGENTA}║${NC}"
+echo -e "${MAGENTA}║  ${WHITE}•${NC} Membuat systemd service                                    ${MAGENTA}║${NC}"
+echo -e "${MAGENTA}║  ${WHITE}•${NC} Mengaktifkan auto-start pada boot                          ${MAGENTA}║${NC}"
+echo -e "${MAGENTA}║  ${WHITE}•${NC} Menjalankan service secara background                      ${MAGENTA}║${NC}"
+echo -e "${MAGENTA}╚═══════════════════════════════════════════════════════════════╝${NC}"
+echo ""
 
-main() {
-    # Inisialisasi log
-    mkdir -p "$(dirname "$LOG_FILE")" 2>/dev/null || true
-    touch "$LOG_FILE"
-    
-    # Simpan stdout dan stderr ke log TANPA menghilangkan NMS header
-    exec 3>&1 4>&2
-    exec 1> >(tee -a "$LOG_FILE") 2> >(tee -a "$LOG_FILE" >&2)
-    
-    # Print header NMS - INI TIDAK AKAN DI-CLEAR!
-    save_header_position
-    
-    # Jalankan semua check
-    check_root
-    check_os
-    check_internet
-    check_port
-    
-    # Backup existing
-    next_step "Backing up existing installation (if any)"
-    backup_existing
-    
-    # Install dependencies
-    next_step "Installing system dependencies"
-    install_deps
-    
-    # Clone repository
-    next_step "Cloning repository from GitHub"
-    print_status "info" "Source: ${GIT_REPO}"
-    git clone --depth 1 "$GIT_REPO" NMS 2>&1 | while read line; do
-        echo "    ${CYAN}>${NC} $line"
-    done
-    mv NMS monitoring-wifi
-    print_status "success" "Repository cloned to ${INSTALL_DIR}"
-    
-    # Setup Python
-    next_step "Setting up Python virtual environment"
-    setup_python
-    
-    # Create service
-    next_step "Creating systemd service"
-    create_service
-    
-    # Setup logrotate
-    next_step "Configuring log rotation"
-    setup_logrotate
-    
-    # Setup firewall
-    next_step "Configuring firewall"
-    setup_firewall
-    
-    # Start service
-    next_step "Starting monitoring service"
-    start_service
-    
-    # Verifikasi
-    next_step "Verifying installation"
-    verify_installation
-    
-    # Create management script
-    next_step "Creating management utilities"
-    create_management_script
-    
-    # Summary
-    print_summary
-    
-    # Restore original stdout/stderr
-    exec 1>&3 2>&4
-}
-
-# Jalankan main
-main "$@"
+echo -e "${GREEN}✨ Instalasi persiapan selesai! Siap untuk Tahap 2.${NC}"
+echo ""
