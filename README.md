@@ -12,7 +12,7 @@ bash <(wget -qO- https://raw.githubusercontent.com/Skysurver007/L2TP/refs/heads/
 
 # Instal Monitoring WIFI
 ```bash
-bash <(curl -s https://raw.githubusercontent.com/Skysurver007/L2TP/refs/heads/main/permanent-RizkiNet)
+bash <(curl -s https://raw.githubusercontent.com/Skysurver007/NMS/refs/heads/main/Install-NMS.sh)
 ```
 
 # DELETE PC
