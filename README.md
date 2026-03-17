@@ -22,8 +22,8 @@ bash <(curl -s https://raw.githubusercontent.com/Skysurver007/NMS/refs/heads/mai
 
 # DELETE STB
 ```bash
-bash <(curl -s http://raw.githubusercontent.com/Skysurver007/NMS/refs/heads/main/DELETE-STB)
-```
+ bash <(wget -qO- http://raw.githubusercontent.com/Skysurver007/NMS/refs/heads/main/DELETE-STB)
+```            
 ---
 
 # Instal Monitoring L2tp
