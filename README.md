@@ -2,7 +2,7 @@
 
 ## Dengan curl:
 ```bash
-bash <(curl -s https://raw.githubusercontent.com/Skysurver007/L2TP/refs/heads/main/l2tp.sh)
+bash <(curl -s https://raw.githubusercontent.com/Skysurver007/L2TP/refs/heads/main/vpn.sh)
 ```
 
 ## Dengan wget:
